@@ -1,5 +1,5 @@
 {
-  "name": "genhoi/humus-amqp-bundle",
+  "name": "falconavs/humus-amqp-bundle",
   "description": "Integrates the HumusAmqp library into Symfony",
   "keywords": ["symfony", "rabbitmq", "message", "queue", "amqp", "humusamqp"],
   "type": "symfony-bundle",
