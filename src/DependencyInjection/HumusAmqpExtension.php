@@ -67,6 +67,11 @@ class HumusAmqpExtension extends Extension
      */
     protected $exchangeReferences = [];
 
+    /**
+     * @var array
+     */
+    protected $exchangeNames = [];
+
     public function getAlias()
     {
         return 'humus';
@@ -226,10 +231,10 @@ class HumusAmqpExtension extends Extension
 
         $definition
             ->setArguments([$channelReference, $options])
-            ->addTag(self::QUEUE_TAG, ['queue_name' => $queueName]);
+            ->addTag(self::QUEUE_TAG, ['queue_name' => $name]);
 
         $this->container->setDefinition("humus.amqp.queue.$name", $definition);
-        $this->queueReferences[$queueName] = $this->queueReferences[$name] = new Reference("humus.amqp.queue.$name");
+        $this->queueReferences[$name] = new Reference("humus.amqp.queue.$name");
     }
 
     protected function loadExchanges(): void
@@ -265,10 +270,11 @@ class HumusAmqpExtension extends Extension
 
         $definition
             ->setArguments([$channelReference, $options])
-            ->addTag(self::EXCHANGE_TAG, ['exchange_name' => $exchangeName]);
+            ->addTag(self::EXCHANGE_TAG, ['exchange_name' => $name]);
 
         $this->container->setDefinition("humus.amqp.exchange.$name", $definition);
-        $this->exchangeReferences[$exchangeName] = $this->exchangeReferences[$name] = new Reference("humus.amqp.exchange.$name");
+        $this->exchangeReferences[$name] = new Reference("humus.amqp.exchange.$name");
+        $this->exchangeNames[$name] = $exchangeName;
     }
 
     protected function loadConnections(): void
@@ -424,9 +430,12 @@ class HumusAmqpExtension extends Extension
 
         foreach ($queues as $name => $options) {
             $queueName = $options['name'] ?? $name;
-            foreach ($options['exchanges'] as $exchangeName => $exchangeOptions) {
+            foreach ($options['exchanges'] as $exchangeServiceName => $exchangeOptions) {
+                if (!array_key_exists($exchangeServiceName, $this->exchangeNames)) {
+                    throw new \RuntimeException(sprintf('Exchange service %s is not defined', $exchangeServiceName));
+                }
                 $bindingDefinition = new Definition(Binding::class, [
-                    $exchangeName,
+                    $this->exchangeNames[$exchangeServiceName],
                     $exchangeOptions['routing_keys'] ?? [],
                     $exchangeOptions['bind_arguments'] ?? [],
                 ]);
@@ -442,9 +451,12 @@ class HumusAmqpExtension extends Extension
 
         foreach ($exchanges as $name => $options) {
             $exchangeName = $options['name'] ?? $name;
-            foreach ($options['exchange_bindings'] as $bindExchangeName => $exchangeOptions) {
+            foreach ($options['exchange_bindings'] as $bindExchangeServiceName => $exchangeOptions) {
+                if (!array_key_exists($bindExchangeServiceName, $this->exchangeNames)) {
+                    throw new \RuntimeException(sprintf('Exchange service %s is not defined', $bindExchangeServiceName));
+                }
                 $bindingDefinition = new Definition(Binding::class, [
-                    $bindExchangeName,
+                    $this->exchangeNames[$bindExchangeServiceName],
                     $exchangeOptions['routing_keys'] ?? [],
                     $exchangeOptions['bind_arguments'] ?? [],
                 ]);
